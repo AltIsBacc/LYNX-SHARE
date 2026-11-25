@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- English; values-pt-rBR has the Brazilian Portuguese lines (CONTRIBUTING.md: new UI texts need one) -->
+<resources>
+    <string name="app_name">LYNX SHARE</string>
+    <string name="play">Play</string>
+    <string name="stop">Stop</string>
+    <string name="open_flp">Open...</string>
+    <string name="new_from_template">New from template</string>
+    <string name="pattern_info">%1$s · %2$.0f BPM</string>
+    <string name="load_failed">Could not open the project: %1$s</string>
+    <string-array name="templates">
+        <item>Empty</item>
+        <item>Basic beat</item>
+        <item>Trap with 808</item>
+        <item>House</item>
+    </string-array>
+</resources>

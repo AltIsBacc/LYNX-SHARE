@@ -27,6 +27,11 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_SYSTEM_PROCESSOR MATCHES "x86_
     set_source_files_properties(src/core/Slayer.cpp PROPERTIES COMPILE_OPTIONS "-fno-inline")
 endif()
 
+# Android: the core goes into a shared library (android/native, docs/ANDROID.md)
+if(ANDROID)
+    set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+endif()
+
 # The plugins are shared libraries: everything they link must be position independent (the option is declared below)
 if(LYNX_BUILD_PLUGINS)
     set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -518,9 +523,22 @@ add_test(NAME lynx_remote_instrument_tests COMMAND lynx_remote_instrument_tests)
 add_test(NAME lynx_remote_pattern_tests COMMAND lynx_remote_pattern_tests)
 
 # ---------------------------------------------------------------------------
+# Android: the engine and its JNI bridge, loaded by the Gradle project in android/ (docs/ANDROID.md)
+
+if(ANDROID)
+    add_subdirectory(android/native)
+endif()
+
+# ---------------------------------------------------------------------------
 # App (JUCE)
 
-option(LYNX_BUILD_APP "Build the app with JUCE" ON)
+# (the JUCE app is for desktops: Android has its own shell in android/)
+if(ANDROID)
+    set(LYNX_BUILD_APP_DEFAULT OFF)
+else()
+    set(LYNX_BUILD_APP_DEFAULT ON)
+endif()
+option(LYNX_BUILD_APP "Build the app with JUCE" ${LYNX_BUILD_APP_DEFAULT})
 
 if(LYNX_BUILD_APP)
     include(FetchContent)

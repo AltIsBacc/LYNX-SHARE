@@ -748,6 +748,13 @@ cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURE
 cmake --build build
 ```
 
+**Android** (a first, minimal app: the engine plays a pattern and draws it into a `SurfaceView`; not built or run yet).
+Needs the Android SDK with the NDK and CMake 3.22.1. Details and what is missing: [`docs/ANDROID.md`](docs/ANDROID.md).
+
+```
+cd android && gradle assembleDebug
+```
+
 **Core tests** (any C++20 compiler, no JUCE). More than a million checks, including parsing the projects that ship
 with FL Studio when you pass their folder. `LYNX_TEST_JOBS=auto` runs them in parallel; the test binary also takes
 `--list`, `--filter a,b`, `--exclude a,b` and `--shard i/n`.

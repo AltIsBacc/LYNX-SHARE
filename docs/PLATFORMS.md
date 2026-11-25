@@ -4,6 +4,8 @@ LYNX SHARE runs on Windows, macOS and Linux from one code base. The core (`src/c
 JUCE and builds anywhere; the app uses JUCE 8.0.4. Everything that differs per OS sits behind a few small helpers in
 `src/platform/`, so the rest of the code never spells out `%APPDATA%` or an `HWND`.
 
+Android has a first, minimal app of its own (the core's engine and a pattern view, not the JUCE app): [ANDROID.md](ANDROID.md).
+
 | | Windows | macOS | Linux |
 |---|---|---|---|
 | Builds | Zig cross build from Linux/WSL (`scripts/build-windows-zig.sh`, used for releases) or CMake + MSVC | CMake + Apple clang, universal arm64 + x86_64 | CMake + GCC or Clang |
