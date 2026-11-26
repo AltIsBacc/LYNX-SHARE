@@ -5,10 +5,8 @@ import android.app.AlertDialog;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
-import android.view.Gravity;
-import android.widget.Button;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.ByteArrayOutputStream;
@@ -19,24 +17,24 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
-/**
- * LYNX SHARE's one screen on Android: play the current pattern of a template or of an .flp project, with the pattern
- * drawn into a SurfaceView (PatternView) and its audio coming from the engine (android/native) through AudioOutput.
- */
 public final class MainActivity extends Activity
 {
     private static final int openProjectRequest = 1;
     private static final int basicBeatTemplate = 1;
+    private static final int rackTab = 0;
+    private static final int rollTab = 1;
 
     private long engine;
     private AudioOutput audio;
-    private PatternView patternView;
-    private TextView info;
-    private Button playButton;
+    private TransportBar transport;
+    private StepSequencerView rack;
+    private PianoRollView roll;
+    private TabBar tabs;
     private boolean playing;
+    private int selectedChannel;
 
-    // every load runs here, one after the other: a project is handed to the audio thread from one thread only
     private final ExecutorService loader = Executors.newSingleThreadExecutor();
+    private volatile ProjectModel current;
     private volatile boolean destroyed;
 
     @Override
@@ -48,47 +46,62 @@ public final class MainActivity extends Activity
         engine = NativeEngine.create (sampleRate);
         audio = new AudioOutput (engine, sampleRate);
 
-        playButton = new Button (this);
-        playButton.setOnClickListener (v -> setPlaying (! playing));
-
-        final Button open = new Button (this);
-        open.setText (R.string.open_flp);
-        open.setOnClickListener (v -> {
-            final Intent intent = new Intent (Intent.ACTION_OPEN_DOCUMENT);
-            intent.addCategory (Intent.CATEGORY_OPENABLE);
-            intent.setType ("*/*");
-            startActivityForResult (intent, openProjectRequest);
+        transport = new TransportBar (this);
+        transport.setListener (new TransportBar.Listener()
+        {
+            @Override public void onMenu() { showMenu(); }
+            @Override public void onPlay() { setPlaying (! playing); }
+            @Override public void onTempo (double bpm) { edit (() -> NativeEngine.setTempo (engine, bpm)); }
         });
 
-        final Button template = new Button (this);
-        template.setText (R.string.new_from_template);
-        template.setOnClickListener (v -> new AlertDialog.Builder (this)
-                .setTitle (R.string.new_from_template)
-                .setItems (R.array.templates, (dialog, which) -> loadTemplate (which))
-                .show());
+        rack = new StepSequencerView (this);
+        rack.attach (engine);
+        rack.setListener (new StepSequencerView.Listener()
+        {
+            @Override public void onStep (int channel, int step)
+            {
+                edit (() -> NativeEngine.toggleStep (engine, channel, step));
+            }
 
-        final LinearLayout buttons = new LinearLayout (this);
-        buttons.setOrientation (LinearLayout.HORIZONTAL);
-        buttons.addView (playButton);
-        buttons.addView (open);
-        buttons.addView (template);
+            @Override public void onSelect (int channel)
+            {
+                selectChannel (channel);
+            }
 
-        info = new TextView (this);
-        info.setGravity (Gravity.CENTER_VERTICAL);
-        info.setPadding (24, 8, 24, 8);
+            @Override public void onMute (int channel)
+            {
+                final ProjectModel model = current;
+                if (model != null && channel < model.channelCount())
+                    edit (() -> NativeEngine.setChannelMuted (engine, channel, ! model.channelMuted[channel]));
+            }
+        });
 
-        patternView = new PatternView (this);
-        patternView.attach (engine);
+        roll = new PianoRollView (this);
+        roll.attach (engine);
+        roll.setListener ((key, step) ->
+        {
+            final int channel = selectedChannel;
+            edit (() -> NativeEngine.toggleNote (engine, channel, key, step));
+        });
+        roll.setVisibility (FrameLayout.GONE);
+
+        final FrameLayout content = new FrameLayout (this);
+        content.addView (rack, new FrameLayout.LayoutParams (FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+        content.addView (roll, new FrameLayout.LayoutParams (FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+
+        tabs = new TabBar (this, new String[] { getString (R.string.tab_rack), getString (R.string.tab_roll) });
+        tabs.setListener (this::showTab);
 
         final LinearLayout root = new LinearLayout (this);
         root.setOrientation (LinearLayout.VERTICAL);
+        root.setBackgroundColor (Theme.background);
         root.setFitsSystemWindows (true);
-        root.addView (buttons);
-        root.addView (info);
-        root.addView (patternView, new LinearLayout.LayoutParams (LinearLayout.LayoutParams.MATCH_PARENT, 0, 1.0f));
+        root.addView (transport);
+        root.addView (content, new LinearLayout.LayoutParams (LinearLayout.LayoutParams.MATCH_PARENT, 0, 1.0f));
+        root.addView (tabs);
         setContentView (root);
 
-        showPlaying (false);
+        transport.setPlaying (false);
         loadTemplate (basicBeatTemplate);
     }
 
@@ -111,7 +124,8 @@ public final class MainActivity extends Activity
     protected void onDestroy()
     {
         destroyed = true;
-        patternView.attach (0);
+        rack.attach (0);
+        roll.attach (0);
         loader.shutdown();
         boolean idle = false;
         try
@@ -123,7 +137,6 @@ public final class MainActivity extends Activity
             Thread.currentThread().interrupt();
         }
 
-        // (a load that has not ended still uses the engine: leave it to the process rather than crash it)
         if (idle)
             NativeEngine.destroy (engine);
         super.onDestroy();
@@ -137,7 +150,8 @@ public final class MainActivity extends Activity
             return;
 
         final Uri uri = data.getData();
-        load (() -> {
+        load (() ->
+        {
             try
             {
                 return NativeEngine.loadFlp (engine, readAll (uri));
@@ -149,22 +163,61 @@ public final class MainActivity extends Activity
         });
     }
 
+    private void showMenu()
+    {
+        new AlertDialog.Builder (this)
+                .setItems (new String[] { getString (R.string.open_flp), getString (R.string.new_from_template) }, (dialog, which) ->
+                {
+                    if (which == 0)
+                        openProject();
+                    else
+                        showTemplates();
+                })
+                .show();
+    }
+
+    private void openProject()
+    {
+        final Intent intent = new Intent (Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory (Intent.CATEGORY_OPENABLE);
+        intent.setType ("*/*");
+        startActivityForResult (intent, openProjectRequest);
+    }
+
+    private void showTemplates()
+    {
+        new AlertDialog.Builder (this)
+                .setTitle (R.string.new_from_template)
+                .setItems (R.array.templates, (dialog, which) -> loadTemplate (which))
+                .show();
+    }
+
+    private void showTab (int index)
+    {
+        rack.setVisibility (index == rackTab ? FrameLayout.VISIBLE : FrameLayout.GONE);
+        roll.setVisibility (index == rollTab ? FrameLayout.VISIBLE : FrameLayout.GONE);
+    }
+
+    private void selectChannel (int channel)
+    {
+        selectedChannel = channel;
+        rack.select (channel);
+        roll.showChannel (channel);
+    }
+
     private void loadTemplate (int index)
     {
         load (() -> NativeEngine.loadTemplate (engine, index));
     }
 
-    /** Runs `work` (a NativeEngine.load call: null when it worked, else the error) off the UI thread, then shows the pattern. */
     private void load (Supplier<String> work)
     {
-        loader.execute (() -> {
+        loader.execute (() ->
+        {
             final String error = work.get();
-            final int[] notes = NativeEngine.notes (engine);
-            final long length = NativeEngine.lengthTicks (engine);
-            final String name = NativeEngine.patternName (engine);
-            final double bpm = NativeEngine.bpm (engine);
-
-            runOnUiThread (() -> {
+            final ProjectModel model = ProjectModel.read (engine);
+            runOnUiThread (() ->
+            {
                 if (destroyed)
                     return;
                 if (error != null)
@@ -172,10 +225,33 @@ public final class MainActivity extends Activity
                     Toast.makeText (this, getString (R.string.load_failed, error), Toast.LENGTH_LONG).show();
                     return;
                 }
-                patternView.show (notes, length);
-                info.setText (getString (R.string.pattern_info, name, bpm));
+                selectChannel (0);
+                apply (model);
             });
         });
+    }
+
+    private void edit (Runnable work)
+    {
+        loader.execute (() ->
+        {
+            work.run();
+            final ProjectModel model = ProjectModel.read (engine);
+            runOnUiThread (() ->
+            {
+                if (! destroyed)
+                    apply (model);
+            });
+        });
+    }
+
+    private void apply (ProjectModel model)
+    {
+        current = model;
+        rack.show (model);
+        roll.show (model);
+        transport.setTempo (model.bpm);
+        transport.setTitle (model.patternName);
     }
 
     private byte[] readAll (Uri uri) throws IOException
@@ -199,11 +275,6 @@ public final class MainActivity extends Activity
         NativeEngine.setPlaying (engine, on);
         if (! on)
             NativeEngine.rewind (engine);
-        showPlaying (on);
-    }
-
-    private void showPlaying (boolean on)
-    {
-        playButton.setText (on ? R.string.stop : R.string.play);
+        transport.setPlaying (on);
     }
 }
