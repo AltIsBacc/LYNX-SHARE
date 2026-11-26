@@ -6,6 +6,9 @@
     <string name="stop">Stop</string>
     <string name="open_flp">Open...</string>
     <string name="new_from_template">New from template</string>
+    <string name="tab_rack">Channel rack</string>
+    <string name="tab_roll">Piano roll</string>
+    <string name="menu">Menu</string>
     <string name="pattern_info">%1$s · %2$.0f BPM</string>
     <string name="load_failed">Could not open the project: %1$s</string>
     <string-array name="templates">

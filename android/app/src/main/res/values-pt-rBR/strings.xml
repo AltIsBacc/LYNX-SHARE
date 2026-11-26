@@ -5,6 +5,9 @@
     <string name="stop">Parar</string>
     <string name="open_flp">Abrir...</string>
     <string name="new_from_template">Novo a partir de modelo</string>
+    <string name="tab_rack">Rack de canais</string>
+    <string name="tab_roll">Piano roll</string>
+    <string name="menu">Menu</string>
     <string name="pattern_info">%1$s · %2$.0f BPM</string>
     <string name="load_failed">Não foi possível abrir o projeto: %1$s</string>
     <string-array name="templates">
