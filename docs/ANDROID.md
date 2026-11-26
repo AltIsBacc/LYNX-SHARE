@@ -6,7 +6,7 @@ LYNX SHARE's own engine, and edits it on a touch screen in the style of a phone 
 app on a phone: the JUCE app (`src/ui`, `src/engine`) is not part of it.
 
 **Status: written, built by CI, not run on a device yet.** `.github/workflows/android.yml` builds the debug APK for
-`arm64-v8a` and `x86_64` on every push that touches `android/`, the core or `CMakeLists.txt`, and uploads it as the
+`arm64-v8a` on every push that touches `android/`, the core or `CMakeLists.txt`, and uploads it as the
 `LYNX-android-debug` artifact. Nobody has started it on a phone or an emulator, so expect fixes in the touch handling and
 the audio path first.
 
@@ -39,10 +39,11 @@ cd android
 gradle assembleDebug          # or open android/ in Android Studio
 ```
 
-CI does the same with NDK 27.2.12479018 and CMake 3.22.1 on an Ubuntu runner, then checks that both ABIs' `liblynx_android.so`
-are in the APK.
+CI does the same with NDK 27.2.12479018 and CMake 3.22.1 on an Ubuntu runner, then checks that `liblynx_android.so` is in the APK.
 
-ABIs: `arm64-v8a` (phones, tablets) and `x86_64` (the emulator). Minimum Android 8.0 (API 26). Release builds should use the
+ABI: `arm64-v8a` only (phones, tablets, and the emulator on an arm64 Mac). There is no `x86_64` build: several effects run
+FL's x87 arithmetic in `long double` to match it bit for bit (`src/core/Granulizer.cpp`, `DistructorFx.cpp`...), and Android's
+x86_64 ABI has no 80-bit `long double`, so the inline assembly does not compile there. Minimum Android 8.0 (API 26). Release builds should use the
 NDK's clang; the core is compiled with `-ffp-contract=off` and, on arm64, a signed `char` as everywhere else
 ([PLATFORMS.md](PLATFORMS.md)), and the arm64 build takes the same sse2neon path as Linux arm64.
 
