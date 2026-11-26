@@ -2,11 +2,6 @@ package com.ka1s.lynx;
 
 import java.nio.ByteBuffer;
 
-/**
- * The engine's native calls (android/native/Jni.cpp). A handle comes from create() and goes to destroy() once the
- * threads that use it have stopped. load*() run on one thread (the app's loader); render() on the audio thread; the
- * rest on any thread.
- */
 final class NativeEngine
 {
     static
@@ -19,24 +14,29 @@ final class NativeEngine
     static native long create (int sampleRate);
     static native void destroy (long handle);
 
-    /** Ticks in a quarter note (core/Song.h). */
     static native int ppq();
+    static native int ticksPerStep();
 
-    /** null when it worked, else what went wrong. */
     static native String loadTemplate (long handle, int index);
     static native String loadFlp (long handle, byte[] project);
+
+    static native boolean toggleStep (long handle, int channel, int step);
+    static native boolean toggleNote (long handle, int channel, int key, int step);
+    static native void setTempo (long handle, double bpm);
+    static native void setChannelMuted (long handle, int channel, boolean muted);
 
     static native void setPlaying (long handle, boolean on);
     static native void rewind (long handle);
     static native double positionTicks (long handle);
 
-    /** Fills a direct buffer with `frames` interleaved stereo float frames. */
     static native void render (long handle, ByteBuffer buffer, int frames);
 
     static native String patternName (long handle);
     static native double bpm (long handle);
     static native long lengthTicks (long handle);
-
-    /** start, length, key and channel (all ticks or numbers) of every note of the playing pattern, one after the other. */
     static native int[] notes (long handle);
+
+    static native String[] channelNames (long handle);
+    static native int[] channelColours (long handle);
+    static native boolean[] channelMuted (long handle);
 }
