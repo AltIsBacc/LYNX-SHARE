@@ -748,7 +748,7 @@ cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURE
 cmake --build build
 ```
 
-**Android** (a first, minimal app: the engine plays a pattern and draws it into a `SurfaceView`; not built or run yet).
+**Android** (a first, minimal app: the engine plays a pattern, edited in a step sequencer and a piano roll; built by CI, not run on a device yet).
 Needs the Android SDK with the NDK and CMake 3.22.1. Details and what is missing: [`docs/ANDROID.md`](docs/ANDROID.md).
 
 ```
